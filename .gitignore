@@ -1,0 +1,5 @@
+dump.rdb
+dataset/
+kaggle/
+lib/model
+*.pyc

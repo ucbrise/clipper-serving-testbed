@@ -1,0 +1,2 @@
+FROM clipper/python-closure-container:0.2
+COPY lib/* /container/
