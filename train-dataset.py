@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import time
 import sys
 import os
 from clipper_admin import ClipperConnection, KubernetesContainerManager
@@ -7,7 +7,7 @@ from clipper_admin.deployers import python as python_deployer
 
 if len(sys.argv) != 4:
     print("Usage: python train-dataset.py dataset_file_path clipper-cluster-IP redis-cluster-IP")
-    print("For example, python train-dataset.py dataset/tr.csv 35.185.255.223 35.197.66.133")
+    print("For example, python train-dataset.py dataset/tr.csv 35.197.66.133 10.59.247.82")
     sys.exit(1)
 
 redis_ip = 'https://' + sys.argv[3]
@@ -15,15 +15,21 @@ clipper_ip = 'https://' + sys.argv[2]
 dataset = sys.argv[1]
 
 # train model on dataset
+print('TRAINING...')
 os.system('cp -f ' + dataset + ' kaggle/tr.csv')
 os.system('cd kaggle')
-os.system('python run.py')
+os.system('cd kaggle && python run.py')
 
 # after training, deploy to clipper and build custom docker image
-os.system('cd ..')
-os.system('mv kaggle/model lib/')
-os.system('docker build -t libffm dockerfiles/LIBFFMDockerfile')
-clipper_conn = ClipperConnection(KubernetesContainerManager(clipper_ip, redis_ip))
+print('Done training. Deploying...')
+os.system('mv kaggle/model docker/lib/')
+os.system('cd docker && docker build -t libffm -f dockerfiles/LIBFFMDockerfile .')
+
+# refresh creds
+os.system('gcloud container clusters get-credentials redis-cluster')
+os.system('kubectl cluster-info')
+
+clipper_conn = ClipperConnection(KubernetesContainerManager(clipper_ip, useInternalIP=True))
 clipper_conn.connect()
 
 # model python closure to deploy to clipper
@@ -32,7 +38,7 @@ def libffm(xs):
     os.system('echo "Id,Label,I1,I2,I3,I4,I5,I6,I7,I8,I9,I10,I11,I12,I13,C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,C14,C15,C16,C17,C18,C19,C20,C21,C22,C23,C24,C25,C26" > te.csv')
     i = 0
     for x in xs:
-        os.system('echo ' + str(i) + ',0,' + ",".join(x) + ' >> te.csv')
+        os.system('echo ' + str(i) + ',0,' + x + ' >> te.csv')
         i += 1
     # process and predict - inspired by kaggle/run.py
     os.system('/container/parallelizer-a.py -s 1 /container/pre-a.py te.csv te.gbdt.dense te.gbdt.sparse')
@@ -44,7 +50,7 @@ def libffm(xs):
     os.system('/container/calibrate.py te.out te.out.cal')
     os.system('/container/make_submission.py te.out.cal submission.csv')
     # turn into predictions
-    with open('te.csv') as fh:
+    with open('submission.csv') as fh:
         lines = fh.readlines()[1:] # ignore first line
     preds = [line.strip().split(',')[1] for line in lines]
     return preds
@@ -53,10 +59,10 @@ def libffm(xs):
 python_deployer.deploy_python_closure(
     clipper_conn,
     name="ffm",
-    base_image="libffm",
     version=int(time.time()),
     input_type="strings",
     registry='ryanhoque',
     func=libffm)
 clipper_conn.link_model_to_app(
     app_name="testbed", model_name="ffm")
+print('Done.')

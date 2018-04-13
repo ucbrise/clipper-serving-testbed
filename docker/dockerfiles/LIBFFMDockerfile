@@ -1,0 +1,3 @@
+FROM clipper/python-closure-container:develop
+RUN pip install -U cloudpickle
+COPY lib/* /container/

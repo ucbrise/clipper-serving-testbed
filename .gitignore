@@ -1,5 +1,5 @@
 dump.rdb
 dataset/
 kaggle/
-lib/model
+docker/lib/model
 *.pyc
