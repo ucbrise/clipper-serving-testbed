@@ -20,7 +20,7 @@ possible_data = [
 "16,18,5203,8,0,0,4,49,10,0,1,,0,05db9164,9f7e1d07,0253bbf5,d6420627,4cf72387,,0db090eb,0b153874,a73ee510,3b08e48b,10e6a64f,31adfaee,38b5339a,07d13a8f,3e25e5f5,1621c7f4,e5ba7672,6a58e423,21ddcdc9,5840adea,bcc7a461,,32c7478e,3214afd4,ea9a246c,e7ecb821"
 ]
 
-fh = open('predictions.log', 'w')
+fh = open('predictions.log', 'a')
 while(True):
     # poisson process with rate 0.1
     interarrival_time = np.random.exponential(scale=10)
@@ -31,11 +31,12 @@ while(True):
         input.append(possible_data[int(np.random.random() * 5)])
     # query clipper
     res = requests.post(
-        "http://%s/testbed/predict" % addr,
+        "http://%s/testbed3/predict" % addr,
         headers=headers,
-        data=json.dumps({"input_batch": input})).json()
+        data=json.dumps({"input_batch": input})).json() 
     print(res)
-    fh.write(json.dumps(res))
+    # uncomment to write predictions to file predictions.log
+    #fh.write(json.dumps(res)+'\n')
 
 fh.close()
 
